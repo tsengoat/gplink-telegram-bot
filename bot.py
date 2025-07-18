@@ -126,21 +126,45 @@ async def handle_postno(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------------------- Main -------------------------------------
 
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+def _start_health_server() -> None:
+    """Starts a tiny HTTP server so Render sees an open port."""
+    port = int(os.getenv("PORT", "8080"))
+
+    class Ping(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.end_headers()
+            self.wfile.write(b"OK")
+
+        # suppress default noisy logging
+        def log_message(self, *_):
+            return
+
+    logger.info("Health server listening on port %s", port)
+    HTTPServer(("0.0.0.0", port), Ping).serve_forever()
+
+
 def main() -> None:
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN environment variable is missing.")
 
-    application: Application = ApplicationBuilder().token(BOT_TOKEN).build()
+    # 1) start the dummy health-check server in a *daemon* thread
+    threading.Thread(target=_start_health_server, daemon=True).start()
 
-    # Public commands
-    application.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
-    application.add_handler(CommandHandler("start", start))
+    # 2) create and start the Telegram bot in the main thread
+    app: Application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # Admin command
-    application.add_handler(CommandHandler("upload", upload))
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("upload", upload))
+    app.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
 
-    logger.info("Bot starting …")
-    application.run_polling()
+    logger.info("Bot running – polling …")
+    app.run_polling()
 
 
 if __name__ == "__main__":
