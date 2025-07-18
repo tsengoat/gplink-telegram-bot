@@ -1,0 +1,15 @@
+# Core dependencies
+python-telegram-bot==20.6
+
+# Async file operations
+aiofiles==23.2.0
+
+# HTTP client optimization (already included in python-telegram-bot)
+# httpx is already a dependency of python-telegram-bot
+
+# Optional: For database migration in the future
+# aiosqlite==0.19.0
+
+# Development dependencies (optional)
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
