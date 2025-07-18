@@ -145,7 +145,7 @@ def _start_health_server() -> None:
         def log_message(self, *_):
             return
 
-    logger.info("Health server listening on port %s", port)
+    logging.info("Health server listening on port %s", port)
     HTTPServer(("0.0.0.0", port), Ping).serve_forever()
 
 
@@ -163,7 +163,7 @@ def main() -> None:
     app.add_handler(CommandHandler("upload", upload))
     app.add_handler(MessageHandler(filters.Regex(POSTNO_RE), postno))
 
-    logger.info("Bot running – polling …")
+    logging.info("Bot running – polling …")
     app.run_polling()
 
 
