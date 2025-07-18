@@ -62,7 +62,7 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main function
 def main():
-    application = ApplicationBuilder().token(os.environ['8184783225:AAHzxB5YSb5dlIy-rmVYmZsXwTPaY0bopIc']).build()
+    application = ApplicationBuilder().token(os.environ['BOT_TOKEN']).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addlink", add_link))
