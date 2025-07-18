@@ -2,22 +2,38 @@ import os
 import json
 import re
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 # File to store post numbers and links
 LINKS_FILE = "links.json"
 
-# Load links from file
-def load_links():
+# Load links from file (called once at startup)
+def _load_links_from_disk() -> dict[str, str]:
+    """Load the persistent links mapping from disk once at startup."""
     if os.path.exists(LINKS_FILE):
         with open(LINKS_FILE, "r") as f:
-            return json.load(f)
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                # Corrupted file – start fresh rather than crashing
+                return {}
     return {}
 
-# Save links to file
-def save_links(links):
+
+# Persist links to disk (called only when the mapping changes)
+def _save_links_to_disk():
     with open(LINKS_FILE, "w") as f:
-        json.dump(links, f)
+        json.dump(LINKS, f)
+
+
+# Cache links in-memory to avoid disk I/O on every request
+LINKS: dict[str, str] = _load_links_from_disk()
 
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -32,10 +48,8 @@ async def get_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     postno = match.group(1)
-    links = load_links()
-
-    if postno in links:
-        await update.message.reply_text(f"🔗 Link for post {postno}: {links[postno]}")
+    if postno in LINKS:
+        await update.message.reply_text(f"🔗 Link for post {postno}: {LINKS[postno]}")
     else:
         await update.message.reply_text(f"❌ Post {postno} not found.")
 
@@ -54,9 +68,8 @@ async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     postno, link = args
-    links = load_links()
-    links[postno] = link
-    save_links(links)
+    LINKS[postno] = link
+    _save_links_to_disk()
 
     await update.message.reply_text(f"✅ Saved link for post {postno}!")
 
@@ -71,10 +84,9 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("addlink", add_link))
 
-    # Add dynamic handlers for /postno0000 to /postno9999
-    for i in range(10000):
-        cmd = f"postno{i:04}"
-        app.add_handler(CommandHandler(cmd, get_post))
+    # One regex-based handler covers every /postno#### command
+    postno_regex = r"^/postno\d{4}$"
+    app.add_handler(MessageHandler(filters.Regex(postno_regex), get_post))
 
     app.run_polling()
 
