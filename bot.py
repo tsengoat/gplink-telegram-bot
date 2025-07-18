@@ -114,6 +114,16 @@ async def upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"✅ Saved custom link for post {num:05d}.")
 
 
+# Aliases for compatibility with dummy server thread
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Alias to start() for backward compatibility."""
+    await start(update, context)
+
+async def handle_postno(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Alias to postno() for backward compatibility."""
+    await postno(update, context)
+
+
 # ---------------------------- Main -------------------------------------
 
 def main() -> None:
