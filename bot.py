@@ -67,12 +67,11 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("addlink", add_link))
     
-    # Any command like /postno0001, /postno0023...
     for i in range(10000):
         command = f"postno{i:04}"
         application.add_handler(CommandHandler(command, get_post))
 
-    application.run_polling()
+    application.run_polling()  # ← This is enough in v20+
 
 if __name__ == "__main__":
     main()
