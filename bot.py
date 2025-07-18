@@ -1,81 +1,78 @@
+import os
 import json
-import re
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import re
 
-# Replace this with your actual Telegram user ID (to restrict who can add links)
-ALLOWED_ADMINS = [7655961867]  
+# File to store post numbers and links
+LINKS_FILE = "links.json"
 
-DATA_FILE = 'links.json'
+# Load or create the JSON file
+def load_links():
+    if os.path.exists(LINKS_FILE):
+        with open(LINKS_FILE, "r") as f:
+            return json.load(f)
+    return {}
 
-# Load existing links from file or start with empty dict
-try:
-    with open(DATA_FILE, 'r') as f:
-        links = json.load(f)
-except FileNotFoundError:
-    links = {}
-
-def save_links():
-    with open(DATA_FILE, 'w') as f:
+def save_links(links):
+    with open(LINKS_FILE, "w") as f:
         json.dump(links, f)
 
+# Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Welcome! Send me a GPLink video URL to add it (admins only). "
-        "Users can get links by sending commands like /postno0001."
-    )
+    await update.message.reply_text("👋 Hello! Send /postno0001 to get a link!")
+
+# Handle /postnoXXXX
+async def get_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    postno = update.message.text.lower().replace("/postno", "")
+    
+    # Validate format
+    if not re.fullmatch(r"\d{4}", postno):
+        await update.message.reply_text("❌ Invalid post number format. Use 4 digits like /postno0001.")
+        return
+
+    links = load_links()
+    
+    if postno in links:
+        await update.message.reply_text(f"🔗 Link for post {postno}: {links[postno]}")
+    else:
+        await update.message.reply_text(f"❌ Post {postno} not found.")
+
+# Add post (admin-only)
+ADMIN_ID = 7655961867  # ← replace with **your own Telegram user ID**
 
 async def add_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    text = update.message.text.strip()
 
-    if user_id not in ALLOWED_ADMINS:
-        await update.message.reply_text("Sorry, you are not authorized to add links.")
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("⛔ Only the bot owner can add links.")
         return
 
-    # Check if the message is a valid GPLink URL (basic check)
-    if not text.startswith('https://gplink.in/'):
-        await update.message.reply_text("Please send a valid GPLink URL starting with https://gplink.in/")
+    args = context.args
+    if len(args) != 2:
+        await update.message.reply_text("Usage: /addlink 0001 https://your-link")
         return
 
-    # Find next post number
-    if links:
-        max_post = max(int(k) for k in links.keys())
-        next_post = max_post + 1
-    else:
-        next_post = 1
+    postno, link = args
+    links = load_links()
+    links[postno] = link
+    save_links(links)
 
-    post_str = str(next_post).zfill(4)  # e.g. 0001
+    await update.message.reply_text(f"✅ Saved link for post {postno}!")
 
-    links[post_str] = text
-    save_links()
-
-    await update.message.reply_text(f"Link added as post number {post_str}.")
-
-async def get_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    message = update.message.text.lower()
-    match = re.match(r'/postno(\d{4})', message)
-    if not match:
-        await update.message.reply_text("Invalid command format. Use /postno0001")
-        return
-
-    post_no = match.group(1)
-    link = links.get(post_no)
-
-    if link:
-        await update.message.reply_text(f"Post {post_no}: {link}")
-    else:
-        await update.message.reply_text(f"No link found for post number {post_no}.")
-
+# Main function
 def main():
-    # Replace 'YOUR_BOT_TOKEN_HERE' with your Telegram bot token
-    application = ApplicationBuilder().token('8184783225:AAHzxB5YSb5dlIy-rmVYmZsXwTPaY0bopIc').build()
+    application = ApplicationBuilder().token(os.environ['8184783225:AAHzxB5YSb5dlIy-rmVYmZsXwTPaY0bopIc']).build()
 
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, add_link))
-    application.add_handler(MessageHandler(filters.Regex(r'^/postno\d{4}$'), get_link))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("addlink", add_link))
+    
+    # Any command like /postno0001, /postno0023...
+    for i in range(10000):
+        command = f"postno{i:04}"
+        application.add_handler(CommandHandler(command, get_post))
 
     application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
